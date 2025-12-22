@@ -1,4 +1,3 @@
-hiiiiiiiii
 import math
 
 def distance(p1, p2):
