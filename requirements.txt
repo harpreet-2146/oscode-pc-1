@@ -1,0 +1,20 @@
+# Core Computer Vision
+opencv-python==4.9.0.80
+mediapipe==0.10.14
+
+# System Control
+pyautogui==0.9.54
+pynput==1.7.7
+
+# Screen utilities (for getting screen dimensions, etc.)
+screeninfo==0.8.1
+
+# Optional: For smoother cursor movement
+numpy==1.26.4
+
+# Optional: For GUI configuration panel (if you want settings UI)
+# customtkinter==5.2.2
+
+# Optional: For audio/volume control
+# pycaw==20230407  # Windows only
+# osascript==2020.12.3  # macOS only
