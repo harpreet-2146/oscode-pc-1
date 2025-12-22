@@ -1,6 +1,14 @@
-ultralytics==8.2.0
+# Gesture Control Project - Python 3.10
+# Now we can use MediaPipe!
+
+# Core Computer Vision
 opencv-python==4.9.0.80
+mediapipe==0.10.14
+numpy==1.26.4
+
+# System Control
 pyautogui==0.9.54
 pynput==1.7.7
-numpy==1.26.4
+
+# Screen utilities
 screeninfo==0.8.1
