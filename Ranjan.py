@@ -1,8 +1,9 @@
 import cv2
 import mediapipe as mp
 
+
 class HandDetector:
-    def __init__(self, detection_con=0.7, track_con=0.5):
+    def __init__(self, detection_con=0.7, track_con=0.7):
         self.mp_hands = mp.solutions.hands
         self.hands = self.mp_hands.Hands(
             static_image_mode=False,
@@ -11,94 +12,97 @@ class HandDetector:
             min_tracking_confidence=track_con
         )
         self.mp_draw = mp.solutions.drawing_utils
-        self.tip_ids = [4, 8, 12, 16, 20]  # Landmarks for fingertips
+        self.results = None
+        self.handedness = "Right"
 
     def find_hands(self, img, draw=True):
-        """Processes the image and returns landmarks."""
+        """Processes the image and detects hands"""
         img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         self.results = self.hands.process(img_rgb)
 
-        if self.results.multi_hand_landmarks and draw:
-            for hand_lms in self.results.multi_hand_landmarks:
-                self.mp_draw.draw_landmarks(img, hand_lms, self.mp_hands.HAND_CONNECTIONS)
+        if self.results.multi_hand_landmarks:
+            if draw:
+                for hand_lms in self.results.multi_hand_landmarks:
+                    self.mp_draw.draw_landmarks(img, hand_lms, self.mp_hands.HAND_CONNECTIONS)
+            
+            # Get handedness
+            if self.results.multi_handedness:
+                self.handedness = self.results.multi_handedness[0].classification[0].label
         
         return img
 
-    def get_finger_status(self, img):
+    def get_finger_status(self, img=None):
         """
-        Returns a list of booleans: [Thumb, Index, Middle, Ring, Pinky]
-        True = Finger is UP, False = Finger is DOWN
+        Returns a list: [Thumb, Index, Middle, Ring, Pinky]
+        1 = Finger is UP, 0 = Finger is DOWN
         """
         fingers = []
+        tips = [4, 8, 12, 16, 20]
         
-        # Check if any hands were detected
-        if self.results.multi_hand_landmarks:
-            my_hand = self.results.multi_hand_landmarks[0]
-            lm_list = []
-            
-            # Convert normalized coordinates to pixel values
-            h, w, c = img.shape
-            for id, lm in enumerate(my_hand.landmark):
-                cx, cy = int(lm.x * w), int(lm.y * h)
-                lm_list.append([id, cx, cy])
-
-            # --- Logic for Fingers ---
-            
-            # 1. Thumb (Tip x < IP x) - Logic varies based on left/right hand
-            # This assumes right hand facing camera. Swap logic for left.
-            # Generally: Check if tip is to the 'outside' of the knuckle
-            if lm_list[self.tip_ids[0]][1] > lm_list[self.tip_ids[0] - 1][1]:
-                fingers.append(True)
+        if not self.results or not self.results.multi_hand_landmarks:
+            return []
+        
+        landmarks = self.results.multi_hand_landmarks[0].landmark
+        
+        # Thumb - check x direction (accounts for left/right hand)
+        if self.handedness == "Right":
+            if landmarks[tips[0]].x < landmarks[tips[0] - 1].x:
+                fingers.append(1)
             else:
-                fingers.append(False)
-
-            # 2. Four Fingers (Index, Middle, Ring, Pinky)
-            # Logic: If Tip y < PIP Joint y (Tip is higher than the second knuckle)
-            # Note: In OpenCV, Y coordinates increase downwards.
-            for id in range(1, 5):
-                if lm_list[self.tip_ids[id]][2] < lm_list[self.tip_ids[id] - 2][2]:
-                    fingers.append(True)
-                else:
-                    fingers.append(False)
+                fingers.append(0)
+        else:
+            if landmarks[tips[0]].x > landmarks[tips[0] - 1].x:
+                fingers.append(1)
+            else:
+                fingers.append(0)
+        
+        # Other 4 fingers - tip above pip joint means finger is up
+        for i in range(1, 5):
+            if landmarks[tips[i]].y < landmarks[tips[i] - 2].y:
+                fingers.append(1)
+            else:
+                fingers.append(0)
         
         return fingers
 
-def main():
+    def get_landmark_positions(self):
+        """Returns dictionary of key landmark positions"""
+        if not self.results or not self.results.multi_hand_landmarks:
+            return None
+        
+        landmarks = self.results.multi_hand_landmarks[0].landmark
+        
+        return {
+            "thumb_tip": (landmarks[4].x, landmarks[4].y),
+            "index_tip": (landmarks[8].x, landmarks[8].y),
+            "middle_tip": (landmarks[12].x, landmarks[12].y),
+            "ring_tip": (landmarks[16].x, landmarks[16].y),
+            "pinky_tip": (landmarks[20].x, landmarks[20].y),
+            "wrist": (landmarks[0].x, landmarks[0].y)
+        }
+
+
+if __name__ == "__main__":
     cap = cv2.VideoCapture(0)
     detector = HandDetector()
-
-    print("Press 'q' to quit...")
 
     while True:
         success, img = cap.read()
         if not success:
             break
-
-        # 1. Find Hand
-        img = detector.find_hands(img)
         
-        # 2. Get Finger Status
-        fingers_up = detector.get_finger_status(img)
+        img = cv2.flip(img, 1)
+        img = detector.find_hands(img)
+        fingers = detector.get_finger_status()
+        
+        if fingers:
+            cv2.putText(img, f"Fingers: {fingers} ({sum(fingers)} up)", (10, 30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
 
-        # 3. Display Result if hand is detected
-        if fingers_up:
-            # Count how many are True
-            count = fingers_up.count(True)
-            
-            # Show the list on screen [T, F, F, F, F]
-            status_text = f"Fingers: {fingers_up}"
-            count_text = f"Count: {count}"
-
-            cv2.putText(img, status_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-            cv2.putText(img, count_text, (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 3)
-
-        cv2.imshow("Hand Finger Counter", img)
-
+        cv2.imshow("Finger Detection", img)
+        
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
     cap.release()
     cv2.destroyAllWindows()
-
-if __name__ == "__main__":
-    main()
