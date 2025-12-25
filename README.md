@@ -69,8 +69,8 @@ gesture-control/
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/your-username/gesture-control.git
-cd gesture-control
+git clone https://github.com/your-username/oscode-pc-1.git
+cd oscode-pc-1
 ```
 
 ### 2. Create virtual environment (Python 3.10 recommended)
