@@ -1,93 +1,122 @@
 import pyautogui
-from pynput.keyboard import (
-Key,
-Controller as KeyboardController
-)
+from pynput.keyboard import Key, Controller as KeyboardController
 
-# Initialize controllers
+# Setup
+pyautogui.FAILSAFE = False
+pyautogui.PAUSE = 0
+
 keyboard = KeyboardController()
-mouse = MouseController()
-
-# Screen size
 SCREEN_W, SCREEN_H = pyautogui.size()
 
-# Smoothing factor for cursor movement
-SMOOTHING = 5
-prev_x, prev_y = 0, 0
+# Smoothing for cursor
+smooth_x, smooth_y = SCREEN_W // 2, SCREEN_H // 2
+SMOOTHING = 0.3
 
 
 def move_cursor(hand_x, hand_y):
     """
-    Move cursor based on normalized hand position (0 to 1)
+    Move cursor based on hand position (0 to 1 normalized)
     """
-    global prev_x, prev_y
-
-    x = int(hand_x * SCREEN_W)
-    y = int(hand_y * SCREEN_H)
-
+    global smooth_x, smooth_y
+    
+    # Invert x for mirror effect
+    target_x = int((1 - hand_x) * SCREEN_W)
+    target_y = int(hand_y * SCREEN_H)
+    
     # Smooth movement
-    curr_x = prev_x + (x - prev_x) / SMOOTHING
-    curr_y = prev_y + (y - prev_y) / SMOOTHING
-
-    pyautogui.moveTo(curr_x, curr_y)
-    prev_x, prev_y = curr_x, curr_y
+    smooth_x = smooth_x + (target_x - smooth_x) * SMOOTHING
+    smooth_y = smooth_y + (target_y - smooth_y) * SMOOTHING
+    
+    pyautogui.moveTo(int(smooth_x), int(smooth_y))
 
 
 def left_click():
+    """Perform left click"""
     pyautogui.click()
 
 
 def right_click():
+    """Perform right click"""
     pyautogui.rightClick()
 
 
-def scroll(up=True):
-    pyautogui.scroll(300 if up else -300)
+def double_click():
+    """Perform double click"""
+    pyautogui.doubleClick()
 
 
-def volume_control(up=True):
-    with keyboard.pressed(Key.media_volume_up if up else Key.media_volume_down):
-        pass
+def scroll(amount=20):
+    """Scroll up (positive) or down (negative)"""
+    pyautogui.scroll(amount)
 
 
-def switch_tab(next_tab=True):
-    keyboard.press(Key.ctrl)
-    keyboard.press(Key.tab if next_tab else Key.shift)
-    keyboard.release(Key.tab if next_tab else Key.shift)
-    keyboard.release(Key.ctrl)
+def volume_up():
+    """Increase volume"""
+    pyautogui.press('volumeup')
 
 
-def perform_action(gesture, hand_pos):
+def volume_down():
+    """Decrease volume"""
+    pyautogui.press('volumedown')
+
+
+def switch_tab():
+    """Switch to next tab (Alt+Tab)"""
+    pyautogui.hotkey('alt', 'tab')
+
+
+def close_window():
+    """Close current window (Alt+F4)"""
+    pyautogui.hotkey('alt', 'F4')
+
+
+def play_pause():
+    """Play/pause media"""
+    pyautogui.press('playpause')
+
+
+def perform_action(gesture, hand_pos=None):
     """
-    gesture: string (e.g., 'open_palm', 'fist', 'peace')
-    hand_pos: tuple (x, y) normalized between 0–1
+    Main function to perform action based on gesture
+    
+    gesture: string (e.g., 'pointing', 'fist', 'peace')
+    hand_pos: tuple (x, y) normalized between 0-1
     """
-
-    x, y = hand_pos
-
-    if gesture == "pointing":
-        move_cursor(x, y)
-
+    
+    if gesture == "pointing" and hand_pos:
+        move_cursor(hand_pos[0], hand_pos[1])
+    
+    elif gesture == "peace":
+        left_click()
+    
     elif gesture == "pinch":
         left_click()
-
+    
     elif gesture == "fist":
         right_click()
-
+    
     elif gesture == "open_palm":
-        scroll(up=True)
-
-    elif gesture == "swipe_down":
-        scroll(up=False)
-
+        scroll(20)
+    
     elif gesture == "thumbs_up":
-        volume_control(up=True)
-
+        volume_up()
+    
     elif gesture == "thumbs_down":
-        volume_control(up=False)
+        volume_down()
+    
+    elif gesture == "swipe_right":
+        switch_tab()
+    
+    elif gesture == "swipe_left":
+        switch_tab()
+    
+    elif gesture == "three":
+        play_pause()
 
-    elif gesture == "peace":
-        switch_tab(next_tab=True)
 
-    else:
-        pass  # No action
+if __name__ == "__main__":
+    print("Testing system controls...")
+    print("Moving cursor to center...")
+    move_cursor(0.5, 0.5)
+    print("Done!")
+
